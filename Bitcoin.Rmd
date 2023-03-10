@@ -1,0 +1,281 @@
+---
+title: "Analizando el precio del Bitcoin: ¿Merece la pena invertir?"
+author: "Manuel Alén - manualen@protonmail.com"
+date: '2022-11-12'
+output: html_document
+---
+
+# Introducción {#seccion-1}
+
+Este _contenido_ ha sido diseñado por **Manuel Alén Sánchez**.
+
+## Contexto
+
+Recientemente hemos visto [una nueva caída del Bitcoin](https://es.investing.com/news/economy/el-precio-de-bitcoin-cae-mas-del-20-hoy-enterate-todo-lo-que-debes-saber-sobre-los-motivos-del-declive-cuanto-vale-el-bitcoin-dolar-en-estos-momentos-2318381) y se ha abierto el mismo debate de siempre relativo a si es rentable invertir en Bitcoin o cualquier otra criptomoneda o no. En el reciente post vamos a realizar el análisis necesario para contestar al debate.
+
+## Evolución del precio del Bitcoin
+Como se puede observar en la siguiente gráfica, el precio del Bitcoin (_Datos desde el 27/12/2020 hasta 10/11/2022_) ha fluctuado mucho.
+
+
+```{r echo = FALSE, include = FALSE, chunk-1}
+library(ggplot2)
+library(tidyverse)
+library(skimr)
+library(RMySQL)
+library(plotly)
+library(metafor)
+library(dplyr)
+library(DT)
+
+
+db_criptos <- dbConnect(MySQL(), user ="manuR",host="localhost", password="manuR", dbname="criptos")
+fecha_lenght <- dbGetQuery(db_criptos,statement = "select count(fecha) from criptos.btc;")
+
+##ETL --> Transforming Data
+df_criptos <- data.frame(fecha <- c(1:fecha_lenght[,1]),
+                          valor_apertura <- dbGetQuery(db_criptos,statement = "select valor_apertura from criptos.resultados order by fecha asc;"),
+                          lim_inf <- dbGetQuery(db_criptos,statement = "select lim_inf from criptos.resultados order by fecha asc;"),
+                          lim_sup <- dbGetQuery(db_criptos,statement = "select lim_sup from criptos.resultados order by fecha asc;")
+                          )
+
+colnames(df_criptos) <- c("fecha","valor_apertura","lim_inf","lim_sup")
+
+
+gg_criptos <-ggplot(df_criptos,aes(x=fecha, group = 1))+
+  geom_line(aes(y=valor_apertura),color = "Blue")+
+  geom_line(aes(y=lim_inf),color="darkred", linetype="twodash")+
+  geom_line(aes(y=lim_sup),color="green", linetype="twodash")+
+  theme_light()+
+  theme_minimal()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "white", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        legend.position = "none")+
+  labs(title = "Valor apertura del BTC por día e intervalos de confianza",
+       caption = "Author: Manuel Alén Sánchez",
+       x = "Día", y="Valor de Apertura")+
+  geom_vline(xintercept = 137, linetype="dotted", color="red", size = 1)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha<=137]),2)),x=95,y=30000,hjust=0.5,
+           vjust=0, size=3)+
+  geom_vline(xintercept = 207, linetype="dotted", color="red", size = 1)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha>137 & df_criptos$fecha<=207]),2)),x=175,y=25000,hjust=0.5,
+           vjust=0, size=3)+
+  geom_vline(xintercept = 277, linetype="dotted", color="red", size = 1)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha>207 & df_criptos$fecha<=277]),2)),x=245,y=25000,hjust=0.5,
+           vjust=0, size=3)+
+  geom_vline(xintercept = 380, linetype="dotted", color="red", size = 1)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha>277 & df_criptos$fecha<=380]),2)),x=330,y=25000,hjust=0.5,
+           vjust=0, size=3)+
+  geom_vline(xintercept = 529, linetype="dotted", color="red", size = 1)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha>380 & df_criptos$fecha<=529]),2)),x=450,y=25000,hjust=0.5,
+           vjust=0, size=3)+
+  annotate('text',label=paste0("Media: ",round(mean(df_criptos$valor_apertura[df_criptos$fecha>529 & df_criptos$fecha<=length(df_criptos$fecha)]),2)),x=610,y=30000,hjust=0.5,
+           vjust=0, size=3)
+```
+
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", btc_graph}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ggplotly(gg_criptos,tooltip =c("x","y"))
+```
+
+
+
+Viendo esta gráfica y la reciente caída del precio del Bitcoin, podría parecer una buena idea realizar una inversión y meter dinero en Bitcoin para la próxima subida. 
+
+No obstante, varias anotaciones. Se aprecia que la línea azul(precio del Bitcoin), muy pocas veces está entre los valores esperados (dentro del intervalo inferior de confianza -línea roja- y del intervalo superior de confianza -línea verde-). Esto nos da una importante pista de lo variable que es el precio del Bitcoin dado su interés puramente especulativo.
+
+Por otro lado, utilizando la teoría bayesiana, podremos conocer la probabilidad de ganar invirtiendo en Bitcoin. Lo compararemos con las ganancias o pérdidas que se pueden dar utilizando el dinero fiat y la obtención del mismo con una mera nómina.
+
+$$
+P(A|B) = \frac{P(B|A) \cdot P(A)}{P(B)}
+$$
+
+
+```{r echo = FALSE, include = FALSE, chunk-2}
+Probabilidad_Ganar <- 0.50
+Probabilidad_Perder <- 0.50
+Probabilidad_Ganar_BTC <- 0.40
+Probabilidad_Perder_BTC <- 0.60
+Probabilidad_Ganar_Fiat <- 0.50
+Probabilidad_Perder_Fiat <- 0.50
+
+
+Probabilidad_BTC_Ganar <- (0.40*0.50)/((0.50*0.40)+(0.50*0.50))
+Probabilidad_BTC_Perder <- (0.60*0.50)/((0.50*0.60)+(0.50*0.50))
+
+Probabilidad_Fiat_Ganar <- (0.50*0.50)/((0.50*0.50)+(0.50*0.40))
+Probabilidad_Fiat_Perder <- (0.50*0.50)/((0.50*0.50)+(0.50*0.60))
+
+df_Bayes_Criptos <- data.frame(
+  Evento <- c("Ganar BTC","Perder BTC","Ganar Fiat","Perder Fiat"),
+  Probabilidad <- c(Probabilidad_BTC_Ganar,
+                    Probabilidad_BTC_Perder,
+                    Probabilidad_Fiat_Ganar,
+                    Probabilidad_Fiat_Perder)
+)
+
+colnames(df_Bayes_Criptos) <- c("Evento","Probabilidad")
+gg_bayes_criptos <- ggplot(df_Bayes_Criptos,aes(x=Evento,y=Probabilidad,fill=Evento))+
+  geom_bar(stat = "identity")+
+  theme_light()+
+  theme_minimal()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "white", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        legend.position = "none")+
+  geom_text(aes(label=100*round(Probabilidad,2)), vjust=1.6, 
+            color="white", size=3.5)+
+  labs(title = "Probabilidad Bayesiana entre BTC y FIAT",
+       caption = "Author: Manuel Alén Sánchez",
+       x = "Item", y="Probabilidad")
+
+```
+
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", Bayes}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ggplotly(gg_bayes_criptos,tooltip =c("x","y"))
+```
+
+Aquí lo importante es tener en cuenta que utilizamos Bayes al ser una probabilidad condicionada donde _P(A|B)_ es la probabilidad de que se de _A_ sabiendo que _B_ es cierto, _P(B|A)_ es la probabilidad de que se de _B_ sabiendo que _A_ es cierto. Las demás variables son las probabilidades de que se de cada evento.
+
+Pues como se comprueba, hay más probabilidades de ganar con la moneda fiat que se recibe en cuestiones como la nómina que invirtiendo en Bitcoin. La probabilidad de perder con una inversión de Bitcoin es del 54,54%, la de ganar con la moneda fiat y sin hacer inversión, del 55,55%. Sigue siendo mejor no invertir dada la alta probabilidad de pérdida. Todo esto lo hemos hecho considerando los días que el valor está por encima del intervalo de confianza y con los días que está dentro del intervalo o por debajo.
+
+## Analizando más en profundidad
+Ahora la cuestión sería: _"Vale,hay más probabilidades de perder que de ganar, pero ¿Hasta qué punto se ve claro que el valor del Bitcoin es ahora más bajo?"_
+
+Pues para responder a esta pregunta, siempre tendremos que acudir a estudiar los tamaños de efecto. Tendremos que crear dos grupos, uno para los valores antes del día 393 que tenemos registrado y otro grupo para los valores de después de esa fecha que hemos establecido como punto de inflexión (una de las grandes caídas de Bitcoin).
+
+Siempre se suele decir a los críticos de las criptomonedas que son bajadas que después se compensarán con subidas en su valor, unas subidas similares que terminarán estabilizando la criptomoneda.
+
+Los items necesarios para proceder a realizar el análisis del tamaño de efecto son:
+
+* Medias por cada grupo
+* Desviación típica de cada grupo
+* Tamaño de las muestras de cada grupo.
+
+Una vez que lo tenemos (algo no muy complicado con las funciones mean(), length() y sd() en el lenguaje R para el dataframe que tenemos), obtenemos que el tamaño de efecto es de 1,48.
+
+
+
+
+
+```{r echo = FALSE, include = FALSE, chunk-3}
+df_resultados_criptos <- data.frame(
+  Analisis <- c("Fase1-2","Fase1-3","Fase1-4","Fase1-5","Fase1-6",
+                "Fase2-1","Fase2-3","Fase2-4","Fase2-5","Fase2-6",
+                "Fase3-1","Fase3-2","Fase3-4","Fase3-5","Fase3-6",
+                "Fase4-1","Fase4-2","Fase4-3","Fase4-5","Fase4-6",
+                "Fase5-1","Fase5-2","Fase5-3","Fase5-4","Fase5-6",
+                "Fase6-1","Fase6-2","Fase6-3","Fase6-4","Fase6-5"),
+  Tamaño_Efecto <- c(1.255,0.236,0.99,0.686,3.006,
+                     1.255,2.11,3.463,1.210,3.880,
+                     0.236,2.11,1.869,0.718,6.501,
+                     0.99,3.463,1.869,2.548,6.783,
+                     0.686,1.210,0.718,2.548,4.432,
+                     3.006,3.880,6.501,6.783,4.432),
+  Significativo <- c(1,0,1,1,1,
+                     1,1,1,1,1,
+                     0,1,1,1,1,
+                     1,1,1,1,1,
+                     1,1,1,1,1,
+                     1,1,1,1,1)
+)
+
+colnames(df_resultados_criptos)<-c("Analisis","Tamaño_Efecto","Significativo")
+```
+
+
+```{r echo = FALSE, include = FALSE, chunk-4}
+ES <- 1.48
+# get mean2 depending on value of ES from d = (u1 - u2)/sd
+mean1 <- ES*1 + 1
+# create x sequence
+x <- seq(1 - 3*1, mean1 + 3*1, .01)
+# generate normal dist #1
+y1 <- dnorm(x, 1, 1)
+# put in data frame
+df1 <- data.frame("x" = x, "y" = y1)
+# generate normal dist #2
+y2 <- dnorm(x, mean1, 1)
+# put in data frame
+df2 <- data.frame("x" = x, "y" = y2)
+# get y values under overlap
+y.poly <- pmin(y1,y2)
+# put in data frame
+poly <- data.frame("x" = x, "y" = y.poly)
+
+# Cohen's U3, proportion of control > 50th perc. treatment
+u3 <- 1 - pnorm(1, mean1,1)
+u3 <- round(u3,3)
+
+# plot with ggplot2
+cohen <- ggplot(df1, aes(x,y, color="#062535")) +
+  # add line for treatment group
+  geom_area(size=1,fill="#062535",color="#062535") + 
+  # add line for control group
+  geom_area(data=df2, aes(color="#088bce"),size=1,fill="#088bce",color="#088bce") +
+  # shade overlap
+  geom_polygon(aes(color=NULL), data=poly, fill="red", alpha=I(4/10),
+               show.legend=F) +
+  # add vlines for group means
+  geom_vline(xintercept = 1, linetype="dotted") + 
+  geom_vline(xintercept = mean1, linetype="dotted") + 
+  # add plot title
+  
+  # change colors and legend annotation
+  scale_color_manual("Group", 
+                     values= c("experimental" = "#062535","control" = "#088bce")) +
+  # remove axis labels
+  ylab(NULL) + xlab(NULL)+
+  theme_minimal()+
+  theme_light()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "black", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        axis.line = element_line(size = 1, colour = "black", linetype=1))+
+  labs(title = paste0("Tamaño de efecto: ",ES),
+       caption = "Author: Manuel Alén Sánchez",
+       x = "Outcome")
+
+
+```
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", Efecto}
+ggplotly(cohen, tooltip = c("x","y")) %>%
+  layout(plot_bgcolor='#373737')
+```
+
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", DataTable}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+datatable(df_resultados_criptos) %>% 
+  formatStyle(
+  "Tamaño_Efecto",
+  background = styleColorBar(range(df_resultados_criptos$Tamaño_Efecto), 'lightgreen'),
+  backgroundSize = '98% 88%',
+  backgroundRepeat = 'no-repeat',
+  backgroundPosition = 'center')
+```

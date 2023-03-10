@@ -1,0 +1,49 @@
+---
+title: "Ejemplo Ejercicios"
+author: "Manuel Alén - manualen@protonmail.com"
+date: '2022-11-12'
+output: html_document
+---
+```{r echo = FALSE}
+library(knitr)
+# Color text
+colorize <- function(x, color) {
+  
+  if (knitr::is_latex_output()) {
+    
+    sprintf("\\textcolor{%s}{%s}", color, x)
+    
+  } else if (knitr::is_html_output()) {
+    
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+    
+  } else { x }
+}
+```
+
+```{r eval = FALSE}
+install.packages("bookdown")
+```
+
+# 📝 Ejercicio {#ejercicio1}
+
+(haz click en las flechas para ver soluciones)
+
+
+<details>
+  <summary><strong>Ejercicio 1</strong>: Media
+  
+</summary>
+  
+- Solución:
+
+```{r}
+mean(mtcars$carb)
+```
+
+</details>
+
+&nbsp;
+
+
+

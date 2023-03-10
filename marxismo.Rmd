@@ -1,0 +1,287 @@
+---
+title: "Validaciones empíricas de la teoría marxista"
+author: "Manuel Alén - manualen@protonmail.com"
+date: 'Creado: 2022-12-03'
+output: html_document
+---
+```{r echo = FALSE}
+library(knitr)
+# Color text
+colorize <- function(x, color) {
+  
+  if (knitr::is_latex_output()) {
+    
+    sprintf("\\textcolor{%s}{%s}", color, x)
+    
+  } else if (knitr::is_html_output()) {
+    
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+    
+  } else { x }
+}
+```
+
+```{r echo = FALSE, include = FALSE, chunk-1}
+library(ggplot2)
+library(tidyverse)
+library(skimr)
+library(RMySQL)
+library(plotly)
+library(metafor)
+library(dplyr)
+library(DT)
+
+## Experiencia laboral Dataset
+df_plusvalia <- data.frame(
+  Año <- c(seq(2002,2019)),
+  Tasa_Plusvalia <- c(131.42,118.77,125.58,121.62,118.72,128.69,128.39,122.36,124.85,119.20,112.10,122.86,132.64,
+                      138.17,128.89,134.84,135.46,117.04),
+  Tasa_Ganancia <- c(24.50,22.09,22.81,21.55,20.80,23.04,25.01,26.43,25.73,24.25,22.01,23.96,25.64,
+                     27.49,26.14,27.05,27.05,31.66),
+  Ciclos_Capital <- c(6.68,6.56,6.76,6.86,6.90,6.87,6.42,5.85,6.10,6.11,6.21,6.36,6.50,6.41,6.22,6.33,6.36,5.87))
+
+colnames(df_plusvalia) <- c("Año","Tasa_Plusvalia","Tasa_Ganancia","Ciclos_Capital")
+
+
+gg_plusvalia <- ggplot(df_plusvalia,aes(x=Año,group=1))+
+  geom_line(aes(y=Tasa_Plusvalia,colour="red"))+
+  geom_line(aes(y=Tasa_Ganancia,colour="#23cd59"))+
+  theme_light()+
+  theme_minimal()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "white", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        axis.line = element_line(colour = "black"),
+        legend.position = "none")+
+  labs(title = "Tasa de Plusvalia y de ganancia por año",
+       caption = "Author: Manuel Alén Sánchez",
+       x = "Año", y="Tasas")
+
+
+ggGaugeAcierto <- plot_ly(
+  domain = list(x=c(0,1), y = c(0,1)),
+  value = 99.28,
+  title = "Acierto en predicción de producción 'marxista' frente a 'capitalista'",
+  type = "indicator",
+  mode = "gauge+number",
+  gauge = list(
+    axis = list(range = list(NULL,100)),
+    steps = list(range = c(0,99.28), color = "lightgreen"),
+    threshold = list(
+      line = list(color = "red", width = 4),
+      thickness = 0.75,
+      value = 100) 
+  )
+)
+```
+
+
+
+
+# Prefacio {-}
+
+Esta guía ha sido diseñado por [Manuel Alén Sánchez](https://twitter.com/alen_manu) y pensada para <mark>**desmentir bulos alrededor del marxismo**</mark>. Dicho manual ha sido elaborado a su vez en `R` con [{rmarkdown}](https://github.com/rstudio/rmarkdown). También se aportará todo el **código** de esta guía en mi [GitHub](https://github.com/manuelalen).
+
+## Licencia {-}
+
+[![Licencia: GPLv3](img/license-GPLv3-blue.png)](https://www.gnu.org/licenses/gpl-3.0)
+
+Este documento es publicado bajo **licencia pública general GNU**,
+una licencia libre de copyleft que garantiza a los usuarios finales (personas, organizaciones, compañías) la **libertad de usar, estudiar, compartir (copiar) y modificar el software. Por cuestiones personales e idoelógicas, no es necesario citar el contenido de esta guía.** 
+
+## Sobre el autor {-}
+
+> 🎤 Hola! Mi nombre es <mark>**Manuel Alén Sánchez**</mark>. Un gusto, un placer
+
+Me dedico tanto al <mark>Business Intelligence </mark> como a la <mark>**visualización de datos utilizando Power BI**</mark>. No obstante, por temas de estadística, prefiero el lenguaje `R`. Tengo titulación en <mark>administración de sistemas informáticos y redes</mark> además de estar cursando el Grado de Economía por la [Uned](https://www.uned.es/universidad/inicio.html). En Twitter me encontraréis compartiendo memes, enfadándome y haciendo hilos sobre estadística aplicada a la vida diaria.
+
+
+🐦 [Twitter](https://twitter.com/alen_manu)  
+🐱 [GitHub](https://github.com/manuelalen)    
+📪 [Correo](mailto:manualen@protonmail.com)
+
+## Propósito {-}
+
+El <mark>**objetivo**</mark> principal de este documento es mostrar cuánto se miente sobre el marxismo, demostrando varios puntos de la misma. No obstante, también se someterá a revisión sistemática la teoría y se detallarán los puntos de la misma que ya no sean correcta.
+
+Todo lo aquí detallado, se podrá encontrar en las <mark>**Fuentes**</mark> 
+
+
+## 📚 Conceptos básicos para empezar {-}
+
+* 🚔 <strong>`r colorize("¿Qué es la plusvalía?","#120cf3")`</strong>: Cualquier persona trabajadora puede entender, que las empresas buscan beneficio. Para esto, los trabajadores producen unas mercancías que, al tener valor de cambio, se venden por dinero. Así pues, los trabajadores producen una cantidad determinada de dinero, pero para que la empresa obtenga beneficio, es vital que el salario de los trabajadores sea menor a la producción medida en unidades monetarias. Eso es la plusvalía, esa diferencia entre lo que se trabaja/produce menos el material que la empresa utiliza para producir, los impuestos y el salario de los trabajadores. Su fórmula, tal y como se detalla en El Capital de Karl Marx es la siguiente:
+
+$$
+P = M - K_{c} - K_{v} - T
+$$
+
+Donde `P` es la <mark><strong>Plusvalia</strong></mark>, `M` son las <mark><strong>mercancías vendidas</strong></mark> y medidas en unidades monetarias, `Kc` es el <mark><strong>capital constante</strong></mark> (máquinas, fábricas, ordenadores, etc medido en unidades monetarias), `Kv` es el <mark><strong>capital variable</strong></mark> (salarios) y `T` son los <mark><strong>impuestos pagados</strong></mark> (pues en las mercancías se mete el valor con los impuestos)
+
+* 💸<strong>`r colorize("¿Qué es la tasa de plusvalía?","#120cf3")`</strong>: Si la plusvalía es lo que el empresario "roba" al trabajador de lo que produce, la tasa de plusvalía sería el porcentaje de cuánto le quita. Para los <mark><strong>marxistas, esto es tasa de explotación</strong></mark>. Esta variable la podemos medir con la siguiente expresión.
+
+$$
+T_{p} = \frac{P}{K_{v}}
+$$
+
+* 🤑 <strong>`r colorize("¿Qué es la tasa de ganancia?","#120cf3")`</strong>: La tasa de ganancia para los marxista sería la rentabilidad que se obtendría del capital. La podemos medir con la siguiente expresión. 
+
+$$
+T_{g} = \frac{P}{(K_{c}+K_{v})}
+$$
+
+
+* ☢️<strong>`r colorize("¿Qué son los ciclos del capital?","#120cf3")`</strong>: Creo que cualquier persona ha ido a comprar a la típica tienda de ropa que es muy barata, pero que la ropa dura muy poco. O alguno ha notado que la batería de su móvil, al año, ya dura muy muy poco "obligando" casi a cambiar el móvil en lo que se conoce como obsolescencia programada. Esta es una consecuencia de los ciclos del capital, un elemento que necesita el capitalosmo para generar beneficios.
+
+> Cualquier marxista recordará el siguiente esquema de circulación del capital
+
+> D - M - D'
+
+> Básicamente que el capitalista utiliza el dinero para, comprando fuerza de trabajo, generar mercancías que le permitan obtener más dinero. 
+
+Pues los ciclos del capital sería cuántas veces una empresa (y en conjunto) necesita repetir este esquema para generar las ganancias deseadas. Lo podemos expresar con la siguiente fórmula:
+
+$$
+C = 1 + A_{k} + T_{p}
+$$
+
+
+## 🪧 Comprobar el acierto entre la estimación de la producción utilizando la teoría marxista y la producción realmente obtenida.
+
+<details>
+<summary><strong>Acierto en porcentaje de la producción estimada con respecto a la realmente obtenida</strong>
+</summary>
+```{r echo=FALSE,warning=FALSE,out.width="110%", gauge-graph}
+ggGaugeAcierto
+```
+</details>
+
+
+## 🔨 Gráfica de tasa de plusvalia y tasa de ganancia {#grafica1}
+
+(haz click en las flechas para ver la gráfica)
+
+
+<details>
+  <summary><strong>Gráfica de tasa de plusvalia y tasa de ganancia</strong>: 
+  
+</summary>
+  
+```{r echo=FALSE,warning=FALSE,out.width="110%", compe_graph}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ggplotly(gg_plusvalia,tooltip =c("x","y","fill"))
+```
+
+</details>
+
+
+Pero ¿Hasta qué punto replica/correlaciona la tasa de plusvalia con la tasa de ganancia?  Esto es algo que comprobaremos realizando, en primer lugar, las correlaciones.
+
+
+## 🔎 Correlaciones entre la tasa de Plusvalía y la Tasa de Ganancia. {#correlaciones-1}
+
+<details>
+  <summary><strong>Correlaciones entre la tasa de Plusvalía y la Tasa de Ganancia</strong>: 
+  
+</summary>
+```{r echo=FALSE,warning=FALSE,out.width="110%", means-0}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+summary(lm(df_plusvalia$Tasa_Plusvalia~df_plusvalia$Tasa_Ganancia)) 
+```
+
+</details>
+
+En un principio no replica tal y como dice la teoría de la tendencia decreciente de la tasa de ganancia. No resulta significativo. Pero este se debe a que ambas replican entre sí con los ciclos del capital. Es decir, tendremos que controlar los ciclos del capital en nuestra medición.
+
+## 📈 Gráfica de dispersión{#grafica2}
+
+<details>
+  <summary><strong>Gráficas de dispersión</strong>: 
+  
+</summary>
+
+```{r echo = FALSE, include = FALSE, dispersion-1}
+ggDispersion <- ggplot(df_plusvalia,aes(x=Tasa_Ganancia,y=Tasa_Plusvalia))+
+geom_point()+
+geom_smooth(method=lm)+
+ theme_light()+
+  theme_minimal()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "white", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        axis.line = element_line(colour = "black"),
+        legend.position = "none")+
+  labs(
+       x = "Tasa de Ganancia", y="Tasa de Plusvalia")
+
+
+
+ggDispersion1 <- ggplot(df_plusvalia,aes(x=Tasa_Ganancia,y=Ciclos_Capital))+
+geom_point()+
+geom_smooth(method=lm)+
+ theme_light()+
+  theme_minimal()+
+  theme(text = element_text(family = "Tahoma"),
+        panel.background = element_rect(color = "white", # Border color
+                                        size = 1, fill = "#FFFFFF"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold",hjust = 0.5,size = 25),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title.position = "plot" ,
+        panel.border = element_blank(),
+        axis.text = element_text(size=7),
+        axis.line = element_line(colour = "black"),
+        legend.position = "none")+
+  labs(
+       x = "Tasa de Ganancia", y="Ciclos del Capital")
+
+```
+
+
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", dispersion-graph}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ggplotly(ggDispersion,tooltip =c("x","y","fill"))
+ggplotly(ggDispersion1,tooltip =c("x","y","fill"))
+```
+
+</details>
+
+Al hacer esto, ya replica ambas variables, y esto es que se debe a que, a mayor ciclos de capital, mayores ganancias. Por esta misma razón, empresas como Primark suelen tener ropa muy poco duraderas, para incitar a un mayor consumo una vez que se estropee la ropa. Esto le llevará a que la ropa dure menos para que la gente compre más y así tengan más preobabilidad de beneficios. Es el mismo motivo que hace que exista la obsolescencia programada en dispositivos tecnológicos.
+
+## 🔎 Correlaciones entre la tasa de Plusvalía y la Tasa de Ganancia controlando los ciclos del capital. {#correlaciones-2}
+<details>
+  <summary><strong>Correlaciones entre la tasa de Plusvalía y la Tasa de Ganancia controlando los ciclos del capital</strong>: 
+  
+</summary>
+
+```{r echo=FALSE,warning=FALSE,out.width="110%", means-1}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+summary(lm(df_plusvalia$Tasa_Plusvalia~df_plusvalia$Tasa_Ganancia+df_plusvalia$Ciclos_Capital)) 
+```
+
+</details>
+
+&nbsp;
+
+
+
+
+## ⛲️ Fuentes {-}
+
+*📕 [El Capital](http://www.archivochile.com/Marxismo/Marx%20y%20Engels/kmarx0012.pdf)
+
